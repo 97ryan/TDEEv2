@@ -16,8 +16,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Recharts for charts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/recharts.min.js"></script>
-    <!-- FileSaver.js for exporting data -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/file-saver/2.0.5/FileSaver.min.js"></script>
     <style>
         /* Base dark mode background to prevent flash of white on load */
         body { background-color: #1c1c1e; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
@@ -205,17 +203,51 @@
                 if (!isNaN(newGoal) && newGoal >= -1 && newGoal <= 1) setGoal(newGoal);
             };
             
-            const handleExport = (format) => {
+            const handleExport = async (format) => {
                 if (entries.length === 0) return;
-                const filename = `tdee-data-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+
+                const filename = `tdee-data-${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`;
+                let blob;
+                let mimeType;
+
                 if (format === 'json') {
-                    const blob = new Blob([JSON.stringify({ goal, entries }, null, 2)], { type: 'application/json' });
-                    window.saveAs(blob, `${filename}.json`);
+                    const dataToExport = JSON.stringify({ goal, entries }, null, 2);
+                    mimeType = 'application/json';
+                    blob = new Blob([dataToExport], { type: mimeType });
                 } else {
-                    const csv = [ "date,weight,calories", ...entries.map(e => `${e.date},${e.weight},${e.calories}`) ].join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    window.saveAs(blob, `${filename}.csv`);
+                    const csvHeader = "date,weight,calories";
+                    const csvRows = entries.map(e => `${e.date},${e.weight},${e.calories}`);
+                    const csvData = [csvHeader, ...csvRows].join('\n');
+                    mimeType = 'text/csv;charset=utf-8;';
+                    blob = new Blob([csvData], { type: mimeType });
                 }
+
+                // Use modern Share API if available (for mobile)
+                if (navigator.share) {
+                    const file = new File([blob], filename, { type: mimeType });
+                    try {
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                files: [file],
+                                title: 'TDEE Data Export',
+                                text: `Your TDEE data as a ${format.toUpperCase()} file.`,
+                            });
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Share API failed, falling back to download.', error);
+                    }
+                }
+
+                // Fallback for desktop and older browsers
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
             };
 
             const handleImport = (e) => {
