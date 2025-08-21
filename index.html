@@ -69,7 +69,12 @@
         const ChevronRightIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
         // --- Helper Functions ---
-        const formatDate = (date) => date.toISOString().split('T')[0];
+        const formatDate = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
         const formatDateDDMMYY = (date) => {
             const d = new Date(date);
             const day = String(d.getDate()).padStart(2, '0');
@@ -187,20 +192,38 @@
 
                 const daily = [];
                 for (let i = 1; i < period.length; i++) {
+                    const dNow = new Date(period[i].date);
+                    const dPrev = new Date(period[i-1].date);
+                    const dayDiff = Math.round((dNow - dPrev) / MS_PER_DAY);
                     const dw = period[i].weight - period[i-1].weight;
-                    const tdeeRaw = period[i].calories - KCAL_PER_KG * dw; // attribute Δ to the day
-                    daily.push(tdeeRaw);
+
+                    if (dayDiff === 1) {
+                        const tdeeRaw = period[i].calories - KCAL_PER_KG * dw;
+                        daily.push(tdeeRaw);
+                    }
                 }
-                const smoothed = emaLast(daily, 3); // half-life ~3 days
-                if (smoothed == null) return null;
-                return Math.round(Math.max(800, Math.min(6000, smoothed)));
+
+                if (daily.length > 0) {
+                    const smoothed = emaLast(daily, 3);
+                    return Math.round(Math.max(800, Math.min(6000, smoothed)));
+                }
+                
+                return null;
             }, [entries]);
 
             const calculationStatus = useMemo(() => {
                 if (entries.length < 3) return 'Needs more data';
                 const sorted = [...entries].sort(byDate);
                 const recent = sorted.slice(-14);
+                if (recent.length < 2) return 'Preliminary Estimate';
                 const spanDays = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / MS_PER_DAY;
+
+                let hasGap = false;
+                for (let i=1; i<recent.length; i++){
+                    const diff = Math.round((new Date(recent[i].date) - new Date(recent[i-1].date)) / MS_PER_DAY);
+                    if (diff > 1) { hasGap = true; break; }
+                }
+                if (hasGap) return 'Gaps in logs — estimate degraded';
                 return spanDays >= 10 ? 'Reliable Estimate' : 'Preliminary Estimate';
             }, [entries]);
 
@@ -262,7 +285,7 @@
                 e.preventDefault();
                 const weight = parseFloat(weightInput);
                 const calories = parseInt(caloriesInput, 10);
-                if (isNaN(weight) || isNaN(calories) || weight <= 0 || calories <= 0) return;
+                if (isNaN(weight) || isNaN(calories) || weight <= 0 || calories < 0) return;
                 const dateStr = formatDate(selectedDate);
                 const existingIndex = entries.findIndex(e => e.date === dateStr);
                 let updatedEntries;
@@ -336,10 +359,10 @@
                                 if (data.targetWeight) setTargetWeight(data.targetWeight);
                             }
                         } else if (file.name.endsWith('.csv')) {
-                            const [header, ...lines] = content.split('\n').filter(l => l.trim());
-                            const imported = lines.map(line => {
+                            const lines = content.replace(/\r/g,'').split('\n').filter(Boolean);
+                            const imported = lines.slice(1).map(line => {
                                 const [date, weight, calories] = line.split(',');
-                                return { date, weight: parseFloat(weight), calories: parseInt(calories) };
+                                return { date, weight: parseFloat(weight), calories: parseInt(calories, 10) };
                             });
                             if (imported.every(e => e.date && !isNaN(e.weight) && !isNaN(e.calories))) {
                                 setEntries(imported.sort((a, b) => new Date(a.date) - new Date(b.date)));
@@ -367,8 +390,8 @@
                         </header>
                         <main>
                             <div className="bg-[#2c2c2e] rounded-xl shadow-lg p-6 mb-6 border border-gray-700">
-                                {calorieTarget ? (
-                                    <div className="space-y-6">
+                                {calorieTarget !== null ? (
+                                    <div className="space-y-3">
                                         <div className="text-center">
                                             <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Calorie Target</h2>
                                             <p className="text-5xl font-bold text-green-400">{calorieTarget} <span className="text-2xl font-medium text-gray-400">kcal</span></p>
@@ -376,12 +399,13 @@
                                         </div>
                                         
                                         {averageWeeklyChange !== null && (() => {
-                                            const colorClass = averageWeeklyChange > 0 ? 'text-blue-400' : 'text-red-400';
-                                            const changeText = averageWeeklyChange > 0 ? `+${averageWeeklyChange.toFixed(2)}` : averageWeeklyChange.toFixed(2);
+                                            const wc = Math.abs(averageWeeklyChange) < 0.005 ? 0 : averageWeeklyChange;
+                                            const colorClass = wc > 0 ? 'text-blue-400' : 'text-red-400';
+                                            const changeText = wc > 0 ? `+${wc.toFixed(2)}` : wc.toFixed(2);
                                             return (
                                                 <div className="text-center">
                                                     <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Current weight change</h2>
-                                                    <p className={`text-5xl font-bold ${averageWeeklyChange === 0 ? 'text-gray-200' : colorClass}`}>
+                                                    <p className={`text-5xl font-bold ${wc === 0 ? 'text-gray-200' : colorClass}`}>
                                                         {changeText}
                                                         <span className="text-2xl font-medium text-gray-400"> kg/week</span>
                                                     </p>
