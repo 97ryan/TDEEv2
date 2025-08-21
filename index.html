@@ -31,12 +31,20 @@
         // --- Helper Icons ---
         const WeightIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><path d="M12 12c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0 2c2.7 0 8 1.3 8 4v2H4v-2c0-2.7 5.3-4 8-4z"/><path d="M20.8 19.3c-1-3.3-3.3-5.3-6.8-5.3s-5.8 2-6.8 5.3"/></svg>;
         const CalorieIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.32 0L12 2.69z"/><path d="M12 12.69l-3.37 3.37"/></svg>;
+        const TargetIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
         const InfoIcon = ({ onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block h-4 w-4 ml-1 text-gray-500 hover:text-gray-300 cursor-pointer"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
         const ChevronLeftIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
         const ChevronRightIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
         // --- Helper Functions ---
         const formatDate = (date) => date.toISOString().split('T')[0];
+        const formatDateDDMMYY = (date) => {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = String(d.getFullYear()).slice(-2);
+            return `${day}/${month}/${year}`;
+        };
         const areDatesEqual = (date1, date2) => formatDate(date1) === formatDate(date2);
 
         // --- Calendar Component ---
@@ -107,6 +115,7 @@
         function App() {
             const [entries, setEntries] = useState([]);
             const [goal, setGoal] = useState(-0.5);
+            const [targetWeight, setTargetWeight] = useState('');
             const [selectedDate, setSelectedDate] = useState(new Date());
             const [weightInput, setWeightInput] = useState('');
             const [caloriesInput, setCaloriesInput] = useState('');
@@ -118,8 +127,10 @@
                 try {
                     const savedEntries = JSON.parse(localStorage.getItem('tdeeAppEntries') || '[]');
                     const savedGoal = parseFloat(localStorage.getItem('tdeeAppGoal') || '-0.5');
+                    const savedTargetWeight = localStorage.getItem('tdeeAppTargetWeight') || '';
                     if (Array.isArray(savedEntries)) setEntries(savedEntries);
                     if (!isNaN(savedGoal)) setGoal(savedGoal);
+                    setTargetWeight(savedTargetWeight);
                 } catch (error) { console.error("Failed to load data", error); }
             }, []);
 
@@ -127,8 +138,9 @@
                 try {
                     localStorage.setItem('tdeeAppEntries', JSON.stringify(entries));
                     localStorage.setItem('tdeeAppGoal', goal.toString());
+                    localStorage.setItem('tdeeAppTargetWeight', targetWeight);
                 } catch (error) { console.error("Failed to save data", error); }
-            }, [entries, goal]);
+            }, [entries, goal, targetWeight]);
 
             useEffect(() => {
                 const entryForDate = entries.find(e => e.date === formatDate(selectedDate));
@@ -160,6 +172,47 @@
                 if (!tdee) return null;
                 return Math.round(tdee + (goal * 7700) / 7);
             }, [tdee, goal]);
+            
+            const currentDailyChange = useMemo(() => {
+                if (entries.length < 2) return null;
+                const recentEntries = entries.slice(-2);
+                const firstEntry = recentEntries[0];
+                const lastEntry = recentEntries[1];
+                const days = (new Date(lastEntry.date).getTime() - new Date(firstEntry.date).getTime()) / (1000 * 3600 * 24);
+                if (days === 0) return null;
+                const weightChange = lastEntry.weight - firstEntry.weight;
+                return weightChange / days;
+            }, [entries]);
+
+            const currentWeeklyChange = useMemo(() => {
+                if (entries.length < 7) return null;
+                const recentEntries = entries.slice(-7);
+                const firstEntry = recentEntries[0];
+                const lastEntry = recentEntries[recentEntries.length - 1];
+                const days = (new Date(lastEntry.date).getTime() - new Date(firstEntry.date).getTime()) / (1000 * 3600 * 24);
+                if (days === 0) return null;
+                const weightChange = lastEntry.weight - firstEntry.weight;
+                return (weightChange / days) * 7;
+            }, [entries]);
+
+            const targetDate = useMemo(() => {
+                const parsedTarget = parseFloat(targetWeight);
+                if (entries.length === 0 || isNaN(parsedTarget) || goal === 0) return "N/A";
+                
+                const currentWeight = entries[entries.length - 1].weight;
+                const weightDifference = parsedTarget - currentWeight;
+
+                if ((weightDifference > 0 && goal < 0) || (weightDifference < 0 && goal > 0)) return "N/A";
+
+                const weeksNeeded = weightDifference / goal;
+                const daysNeeded = weeksNeeded * 7;
+
+                if (daysNeeded <= 0) return "N/A";
+
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + daysNeeded);
+                return formatDateDDMMYY(futureDate);
+            }, [entries, targetWeight, goal]);
 
             const trendsData = useMemo(() => {
                 if (entries.length < 14) return [];
@@ -180,6 +233,10 @@
                 }
                 return dataWithTDEE;
             }, [entries]);
+            
+            const entryForSelectedDateExists = useMemo(() => {
+                return entries.some(e => e.date === formatDate(selectedDate));
+            }, [selectedDate, entries]);
 
             const handleAddEntry = (e) => {
                 e.preventDefault();
@@ -197,6 +254,12 @@
                 }
                 setEntries(updatedEntries.sort((a, b) => new Date(a.date) - new Date(b.date)));
             };
+            
+            const handleDeleteEntry = () => {
+                const dateStr = formatDate(selectedDate);
+                const updatedEntries = entries.filter(entry => entry.date !== dateStr);
+                setEntries(updatedEntries);
+            };
 
             const handleGoalChange = (e) => {
                 const newGoal = parseFloat(e.target.value);
@@ -205,13 +268,11 @@
             
             const handleExport = async (format) => {
                 if (entries.length === 0) return;
-
                 const filename = `tdee-data-${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`;
                 let blob;
                 let mimeType;
-
                 if (format === 'json') {
-                    const dataToExport = JSON.stringify({ goal, entries }, null, 2);
+                    const dataToExport = JSON.stringify({ goal, entries, targetWeight }, null, 2);
                     mimeType = 'application/json';
                     blob = new Blob([dataToExport], { type: mimeType });
                 } else {
@@ -221,25 +282,15 @@
                     mimeType = 'text/csv;charset=utf-8;';
                     blob = new Blob([csvData], { type: mimeType });
                 }
-
-                // Use modern Share API if available (for mobile)
                 if (navigator.share) {
                     const file = new File([blob], filename, { type: mimeType });
                     try {
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                files: [file],
-                                title: 'TDEE Data Export',
-                                text: `Your TDEE data as a ${format.toUpperCase()} file.`,
-                            });
+                            await navigator.share({ files: [file], title: 'TDEE Data Export', text: `Your TDEE data as a ${format.toUpperCase()} file.` });
                             return;
                         }
-                    } catch (error) {
-                        console.error('Share API failed, falling back to download.', error);
-                    }
+                    } catch (error) { console.error('Share API failed, falling back to download.', error); }
                 }
-
-                // Fallback for desktop and older browsers
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -262,6 +313,7 @@
                             if (data && Array.isArray(data.entries) && typeof data.goal === 'number') {
                                 setEntries(data.entries.sort((a, b) => new Date(a.date) - new Date(b.date)));
                                 setGoal(data.goal);
+                                if (data.targetWeight) setTargetWeight(data.targetWeight);
                             }
                         } else if (file.name.endsWith('.csv')) {
                             const [header, ...lines] = content.split('\n').filter(l => l.trim());
@@ -290,32 +342,63 @@
                     <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
                         <header className="text-center mb-6">
                             <h1 className="text-4xl font-bold text-white">Adaptive TDEE Tracker</h1>
+                            <p className="text-gray-400 mt-2">Target weight date: <span className="font-semibold text-white">{targetDate}</span></p>
                         </header>
                         <main>
                             <div className="bg-[#2c2c2e] rounded-xl shadow-lg p-6 mb-6 border border-gray-700">
-                                <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Calorie Target</h2>
-                                <div className="text-center">
-                                    {calorieTarget ? (
-                                        <>
+                                {calorieTarget ? (
+                                    <div>
+                                        <div className="text-center">
+                                            <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Calorie Target</h2>
                                             <p className="text-5xl font-bold text-green-400">{calorieTarget} <span className="text-2xl font-medium text-gray-400">kcal</span></p>
                                             <p className="text-sm text-gray-500 mt-2">Based on a TDEE of {tdee} kcal/day ({calculationStatus})</p>
-                                        </>
-                                    ) : (
-                                        <div>
-                                            <p className="text-xl font-medium text-gray-400 animate-pulse">
-                                                Calculating... 
-                                                <InfoIcon onClick={() => setShowInfo(!showInfo)} />
-                                            </p>
-                                            {showInfo && (
-                                                <div className="mt-2 text-sm text-left text-gray-400 bg-gray-700/50 p-3 rounded-lg">
-                                                    <p>This app calculates your TDEE based on your weight change and calorie intake.</p>
-                                                    <p className="mt-1">&bull; An initial estimate requires at least 2 entries.</p>
-                                                    <p className="mt-1">&bull; The calculation becomes more reliable after 14 days.</p>
-                                                </div>
-                                            )}
                                         </div>
-                                    )}
-                                </div>
+                                        
+                                        <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 pt-3">
+                                            {currentDailyChange !== null && (() => {
+                                                const dailyGoal = goal / 7;
+                                                const onTrack = Math.abs(currentDailyChange - dailyGoal) <= (0.05 / 7);
+                                                const changeText = currentDailyChange > 0 ? `+${currentDailyChange.toFixed(2)}` : currentDailyChange.toFixed(2);
+                                                return (
+                                                    <div className="text-center">
+                                                        <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Change</h2>
+                                                        <p className={`text-5xl font-bold ${onTrack ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {changeText}
+                                                            <span className="text-2xl font-medium text-gray-400"> kg/day</span>
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })()}
+                                            {currentWeeklyChange !== null && (() => {
+                                                const onTrack = Math.abs(currentWeeklyChange - goal) <= 0.05;
+                                                const changeText = currentWeeklyChange > 0 ? `+${currentWeeklyChange.toFixed(2)}` : currentWeeklyChange.toFixed(2);
+                                                return (
+                                                     <div className="text-center">
+                                                        <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Weekly Change</h2>
+                                                        <p className={`text-5xl font-bold ${onTrack ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {changeText}
+                                                            <span className="text-2xl font-medium text-gray-400"> kg/week</span>
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center">
+                                        <p className="text-xl font-medium text-gray-400 animate-pulse">
+                                            Calculating... 
+                                            <InfoIcon onClick={() => setShowInfo(!showInfo)} />
+                                        </p>
+                                        {showInfo && (
+                                            <div className="mt-2 text-sm text-left text-gray-400 bg-gray-700/50 p-3 rounded-lg">
+                                                <p>This app calculates your TDEE based on your weight change and calorie intake.</p>
+                                                <p className="mt-1">&bull; An initial estimate requires at least 2 entries.</p>
+                                                <p className="mt-1">&bull; The calculation becomes more reliable after 14 days.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className="mb-6">
                                 <div className="flex justify-center border-b border-gray-700">
@@ -327,7 +410,7 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <Calendar selectedDate={selectedDate} setSelectedDate={setSelectedDate} entries={entries} />
                                     <div className="bg-[#2c2c2e] rounded-xl shadow-md p-6 border border-gray-700">
-                                        <h2 className="text-xl font-bold mb-4 text-white">Log for {selectedDate.toLocaleDateString()}</h2>
+                                        <h2 className="text-xl font-bold mb-4 text-white">Log for {formatDateDDMMYY(selectedDate)}</h2>
                                         <form onSubmit={handleAddEntry} className="space-y-4">
                                             <div>
                                                 <label htmlFor="weight" className="block text-sm font-medium text-gray-300 mb-1">Weight (kg)</label>
@@ -337,7 +420,20 @@
                                                 <label htmlFor="calories" className="block text-sm font-medium text-gray-300 mb-1">Calories (kcal)</label>
                                                 <div className="flex items-center"><CalorieIcon /><input type="number" id="calories" step="10" value={caloriesInput} onChange={(e) => setCaloriesInput(e.target.value)} placeholder="e.g., 2100" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"/></div>
                                             </div>
-                                            <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">Save Entry</button>
+                                             <div>
+                                                <label htmlFor="target-weight" className="block text-sm font-medium text-gray-300 mb-1">Target Weight (kg)</label>
+                                                <div className="flex items-center"><TargetIcon /><input type="number" id="target-weight" step="0.1" value={targetWeight} onChange={(e) => setTargetWeight(e.target.value)} placeholder="e.g., 68.0" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"/></div>
+                                            </div>
+                                            <div className="flex items-center gap-x-2">
+                                                <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                                                    {entryForSelectedDateExists ? 'Update Entry' : 'Save Entry'}
+                                                </button>
+                                                {entryForSelectedDateExists && (
+                                                    <button type="button" onClick={handleDeleteEntry} className="w-full bg-transparent border border-red-500 text-red-500 font-bold py-2 px-4 rounded-md hover:bg-red-500 hover:text-white transition-colors">
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </div>
                                         </form>
                                     </div>
                                 </div>
@@ -388,7 +484,7 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
     </script>
