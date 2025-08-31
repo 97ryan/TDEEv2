@@ -171,19 +171,20 @@
 
             useEffect(() => {
                 const entryForDate = entries.find(e => e.date === formatDate(selectedDate));
-                setWeightInput(entryForDate ? entryForDate.weight.toString() : '');
-                setCaloriesInput(entryForDate ? entryForDate.calories.toString() : '');
+                setWeightInput(entryForDate ? (entryForDate.weight ?? '').toString() : '');
+                setCaloriesInput(entryForDate ? (entryForDate.calories ?? '').toString() : '');
             }, [selectedDate, entries]);
 
             const tdee = useMemo(() => {
-                // Return null if there isn't enough data for a trend line.
-                if (entries.length < 2) return null;
+                // TDEE calculation requires paired weight and calorie data.
+                const completeEntries = entries.filter(e => e.weight != null && e.calories != null);
                 
-                const sorted = [...entries].sort(byDate);
-                // Use the last 49 days of data, as per the app description.
-                const period = sorted.slice(-49); 
+                if (completeEntries.length < 2) return null;
                 
-                // Still need at least 2 data points within the period.
+                const sorted = [...completeEntries].sort(byDate);
+                // Use the last 49 days of *complete* data.
+                const period = sorted.slice(-49);
+                
                 if (period.length < 2) return null;
 
                 // 1. Calculate average calorie intake over the period.
@@ -193,7 +194,6 @@
                 // 2. Calculate weight change trend (slope) using linear regression.
                 const weightChangeKgPerDay = slopeKgPerDay(period);
                 
-                // If slope can't be calculated, TDEE can't be determined.
                 if (weightChangeKgPerDay === null) return null;
 
                 // 3. Calculate TDEE: Avg Calories - Energy Equivalent of Weight Change
@@ -204,10 +204,13 @@
             }, [entries]);
 
             const calculationStatus = useMemo(() => {
-                if (entries.length < 3) return 'Needs more data';
-                const sorted = [...entries].sort(byDate);
+                const completeEntries = entries.filter(e => e.weight != null && e.calories != null);
+                if (completeEntries.length < 2) return 'Needs more data';
+                
+                const sorted = [...completeEntries].sort(byDate);
                 const recent = sorted.slice(-14);
                 if (recent.length < 2) return 'Preliminary Estimate';
+                
                 const spanDays = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / MS_PER_DAY;
 
                 let hasGap = false;
@@ -225,9 +228,12 @@
             }, [tdee, goal]);
             
             const averageWeeklyChange = useMemo(() => {
-                if (entries.length < 2) return null;
-                const sorted = [...entries].sort(byDate);
-                const recent = sorted.slice(-14); // last ~2 weeks
+                const weightEntries = entries.filter(e => e.weight != null);
+                if (weightEntries.length < 2) return null;
+
+                const sorted = [...weightEntries].sort(byDate);
+                // Use last 14 entries with weight data
+                const recent = sorted.slice(-14); 
                 if (recent.length < 2) return null;
                 const slope = slopeKgPerDay(recent);
                 return slope === null ? null : slope * 7; // kg/week
@@ -235,9 +241,11 @@
 
             const targetDate = useMemo(() => {
                 const parsedTarget = parseFloat(targetWeight);
-                if (entries.length < 2 || isNaN(parsedTarget) || goal === 0) return null;
+                const weightEntries = entries.filter(e => e.weight != null);
 
-                const sorted = [...entries].sort(byDate);
+                if (weightEntries.length < 1 || isNaN(parsedTarget) || goal === 0) return null;
+
+                const sorted = [...weightEntries].sort(byDate);
                 const last = sorted[sorted.length - 1];
                 const currentWeight = last.weight;
                 const weightDiff = parsedTarget - currentWeight;
@@ -253,9 +261,11 @@
 
             const projectedTargetDate = useMemo(() => {
                 const parsedTarget = parseFloat(targetWeight);
-                if (entries.length < 2 || isNaN(parsedTarget) || averageWeeklyChange === null || averageWeeklyChange === 0) return "N/A";
+                const weightEntries = entries.filter(e => e.weight != null);
 
-                const sorted = [...entries].sort(byDate);
+                if (weightEntries.length < 2 || isNaN(parsedTarget) || averageWeeklyChange === null || averageWeeklyChange === 0) return "N/A";
+
+                const sorted = [...weightEntries].sort(byDate);
                 const last = sorted[sorted.length - 1];
                 const currentWeight = last.weight;
                 const weightDiff = parsedTarget - currentWeight;
@@ -273,29 +283,51 @@
                 return entries.some(e => e.date === formatDate(selectedDate));
             }, [selectedDate, entries]);
 
-            const handleAddEntry = (e) => {
-                e.preventDefault();
-                const weight = parseFloat(weightInput);
-                const calories = parseInt(caloriesInput, 10);
-                if (isNaN(weight) || isNaN(calories) || weight <= 0 || calories < 0) return;
-                const dateStr = formatDate(selectedDate);
-                const existingIndex = entries.findIndex(e => e.date === dateStr);
-                let updatedEntries;
-                if (existingIndex > -1) {
-                    updatedEntries = [...entries];
-                    updatedEntries[existingIndex] = { date: dateStr, weight, calories };
-                } else {
-                    updatedEntries = [...entries, { date: dateStr, weight, calories }];
-                }
-                setEntries(updatedEntries.sort((a, b) => new Date(a.date) - new Date(b.date)));
-            };
-            
             const handleDeleteEntry = () => {
                 const dateStr = formatDate(selectedDate);
                 const updatedEntries = entries.filter(entry => entry.date !== dateStr);
                 setEntries(updatedEntries);
             };
 
+            const handleAddEntry = (e) => {
+                e.preventDefault();
+                const weight = parseFloat(weightInput);
+                const calories = parseInt(caloriesInput, 10);
+                
+                const newWeight = !isNaN(weight) && weight > 0 ? weight : null;
+                const newCalories = !isNaN(calories) && calories >= 0 ? calories : null;
+
+                // If both inputs are invalid or empty, delete the entry if it exists, otherwise do nothing
+                if (newWeight === null && newCalories === null) {
+                    if (entryForSelectedDateExists) {
+                       handleDeleteEntry();
+                    }
+                    return;
+                }
+
+                const dateStr = formatDate(selectedDate);
+                const existingIndex = entries.findIndex(e => e.date === dateStr);
+                let updatedEntries;
+
+                if (existingIndex > -1) {
+                    updatedEntries = [...entries];
+                    const existingEntry = updatedEntries[existingIndex];
+                    // Update entry, respecting cleared fields
+                    updatedEntries[existingIndex] = {
+                        ...existingEntry,
+                        weight: weightInput.trim() === '' ? null : newWeight ?? existingEntry.weight,
+                        calories: caloriesInput.trim() === '' ? null : newCalories ?? existingEntry.calories,
+                    };
+                } else {
+                    updatedEntries = [...entries, { date: dateStr, weight: newWeight, calories: newCalories }];
+                }
+                
+                // Clean up any entries that might have become empty
+                updatedEntries = updatedEntries.filter(e => e.weight != null || e.calories != null);
+                
+                setEntries(updatedEntries.sort(byDate));
+            };
+            
             const handleGoalChange = (e) => {
                 const newGoal = parseFloat(e.target.value);
                 if (!isNaN(newGoal) && newGoal >= -1 && newGoal <= 1) setGoal(newGoal);
@@ -312,7 +344,8 @@
                     blob = new Blob([dataToExport], { type: mimeType });
                 } else {
                     const csvHeader = "date,weight,calories";
-                    const csvRows = entries.map(e => `${e.date},${e.weight},${e.calories}`);
+                    // Handle null values gracefully for CSV export
+                    const csvRows = entries.map(e => `${e.date},${e.weight ?? ''},${e.calories ?? ''}`);
                     const csvData = [csvHeader, ...csvRows].join('\n');
                     mimeType = 'text/csv;charset=utf-8;';
                     blob = new Blob([csvData], { type: mimeType });
@@ -346,18 +379,25 @@
                         if (file.name.endsWith('.json')) {
                             const data = JSON.parse(content);
                             if (data && Array.isArray(data.entries) && typeof data.goal === 'number') {
-                                setEntries(data.entries.sort((a, b) => new Date(a.date) - new Date(b.date)));
+                                setEntries(data.entries.sort(byDate));
                                 setGoal(data.goal);
-                                if (data.targetWeight) setTargetWeight(data.targetWeight);
+                                setTargetWeight(data.targetWeight || '');
                             }
                         } else if (file.name.endsWith('.csv')) {
                             const lines = content.replace(/\r/g,'').split('\n').filter(Boolean);
                             const imported = lines.slice(1).map(line => {
                                 const [date, weight, calories] = line.split(',');
-                                return { date, weight: parseFloat(weight), calories: parseInt(calories, 10) };
-                            });
-                            if (imported.every(e => e.date && !isNaN(e.weight) && !isNaN(e.calories))) {
-                                setEntries(imported.sort((a, b) => new Date(a.date) - new Date(b.date)));
+                                const w = parseFloat(weight);
+                                const c = parseInt(calories, 10);
+                                return { 
+                                    date, 
+                                    weight: isNaN(w) ? null : w, 
+                                    calories: isNaN(c) ? null : c 
+                                };
+                            }).filter(e => e.date && (e.weight != null || e.calories != null)); // Ensure imported rows are not empty
+                            
+                            if (imported.length > 0) {
+                                setEntries(imported.sort(byDate));
                             }
                         }
                     } catch (error) { console.error("Import failed:", error); }
@@ -368,6 +408,8 @@
             
             const handleConfirmClear = () => {
                 setEntries([]);
+                setGoal(0);
+                setTargetWeight('');
                 setShowClearConfirm(false);
             };
 
@@ -382,7 +424,7 @@
                         </header>
                         <main>
                             <div className="bg-[#2c2c2e] rounded-xl shadow-lg p-6 mb-6 border border-gray-700">
-                                {calorieTarget !== null ? (
+                                {tdee !== null ? (
                                     <div className="space-y-3">
                                         <div className="text-center">
                                             <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Calorie Target</h2>
@@ -413,9 +455,9 @@
                                         </p>
                                         {showInfo && (
                                             <div className="mt-2 text-sm text-left text-gray-400 bg-gray-700/50 p-3 rounded-lg">
-                                                <p>This app calculates your TDEE based on your weight change and calorie intake.</p>
-                                                <p className="mt-1">&bull; An initial estimate requires at least 2 entries.</p>
-                                                <p className="mt-1">&bull; The calculation becomes more reliable after 14 days.</p>
+                                                <p>TDEE is your Total Daily Energy Expenditure.</p>
+                                                <p className="mt-1">&bull; An estimate requires at least 2 days with both weight & calorie entries.</p>
+                                                <p className="mt-1">&bull; The calculation becomes more reliable with more consistent data.</p>
                                             </div>
                                         )}
                                     </div>
