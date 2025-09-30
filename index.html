@@ -1,536 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <!-- Meta tags for iOS Home Screen App -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Ryan's TDEE Tracker</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React Libraries -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel to translate JSX in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Recharts for charts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/recharts.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>TDEE Tracker</title>
     <style>
-        /* Base dark mode background to prevent flash of white on load */
-        body { background-color: #1c1c1e; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        /* Base dark mode background to blend with app look */
+        :root {
+            color-scheme: dark;
+        }
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+            background: #0b0b0f;
+            color: #e6e6f0;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 24px auto 80px auto;
+            padding: 0 16px;
+        }
+        h1,h2,h3 {
+            margin: 0;
+            line-height: 1.25;
+        }
+        h1 { font-size: 28px; font-weight: 700; letter-spacing: .2px;}
+        h2 { font-size: 22px; font-weight: 700; opacity: .92;}
+        h3 { font-size: 18px; font-weight: 600; opacity: .92;}
+        .subtle { opacity: .8 }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 860px) {
+            .row { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: linear-gradient(180deg, #13131a, #0f0f14);
+            border: 1px solid #1f1f29;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 10px 24px rgba(0,0,0,.35);
+        }
+        .card .title {
+            display:flex; align-items:center; gap:8px; margin-bottom:10px;
+        }
+        .kpi {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+        @media (max-width: 860px) {
+            .kpi { grid-template-columns: 1fr 1fr; }
+        }
+        .kpi .item {
+            background: #0f0f14;
+            border: 1px dashed #252536;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .kpi .label {
+            font-size: 12px; opacity: .75; letter-spacing: .3px;
+        }
+        .kpi .value {
+            margin-top: 4px; font-size: 20px; font-weight: 700;
+        }
+        .kpi .hint {
+            margin-top: 4px; font-size: 12px; opacity: .7;
+        }
+        .controls {
+            display:flex; gap:12px; flex-wrap:wrap; align-items: center;
+            margin-top: 8px;
+        }
+        input, select, button, textarea {
+            background: #0d0d12;
+            color: #f0f0fa;
+            border: 1px solid #242436;
+            border-radius: 10px;
+            padding: 10px 12px;
+            outline: none;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #3f51f5;
+            box-shadow: 0 0 0 2px rgba(63,81,245,.25);
+        }
+        button.primary {
+            background: #3f51f5;
+            border: none;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        button.ghost {
+            background: transparent;
+            border: 1px dashed #2d2d42;
+            color: #e6e6f0;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 8px;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #13131a;
+            z-index: 1;
+        }
+        tbody tr:nth-child(odd) {
+            background: rgba(255,255,255,0.02);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 860px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+        .pill {
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding: 6px 10px;
+            background: #101019;
+            border: 1px solid #24243b;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+        .muted { opacity: .75; }
+        .good { color: #72ffa8; }
+        .warn { color: #ffd479; }
+        .bad  { color: #ff7b94; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+        .spaced { letter-spacing: .2px; }
+        .box {
+            background: #0d0d12;
+            border: 1px solid #222236;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+        .flex { display:flex; gap:10px; align-items:center; }
+        .between { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .wrap { flex-wrap:wrap; }
+        .mt8 { margin-top:8px }
+        .mt12{ margin-top:12px }
+        .mt16{ margin-top:16px }
+        .mt20{ margin-top:20px }
+        .mt24{ margin-top:24px }
+        .mt32{ margin-top:32px }
+        .mt40{ margin-top:40px }
+        .sm { font-size: 12px }
+        .xs { font-size: 11px }
+        .right { text-align:right }
+        .center { text-align:center }
+        .note { font-size:12px; opacity:.75 }
+        .hr { height:1px; background:#1a1a26; margin: 10px 0 }
+        .tag {
+            display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px;
+            background:#101019; border:1px solid #24243b; opacity:.85
+        }
+        .tight { line-height: 1.2 }
+        .w100 { width:100% }
+        .mono-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; letter-spacing:.2px;}
+        .scroll {
+            max-height: 520px;
+            overflow: auto;
+            border-radius: 10px;
+            border: 1px solid #1b1b28;
+        }
+        .hint-row { display:flex; gap:10px; flex-wrap:wrap; }
+        .hint-row .hint-card { background:#0d0d12; border:1px dashed #27273a; padding:8px 10px; border-radius:10px; font-size:12px;}
+        .grid-3 { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; }
+        @media (max-width: 860px) {
+            .grid-3 { grid-template-columns: 1fr; }
+        }
+        .small-input { width: 110px }
+        .cap { text-transform: uppercase; font-size:11px; letter-spacing:.6px; opacity:.7 }
+        .b { font-weight:700 }
+        .sep { height: 10px }
+        .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; padding:1px 6px; border:1px solid #30304a; border-radius:6px; background:#0e0e16;}
+        .link { color:#9fb2ff; text-decoration: none }
+        .link:hover { text-decoration: underline }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        // Destructure necessary components from the global objects provided by the CDNs
-        const { useState, useEffect, useMemo } = React;
+    <!-- Minimal dependency: Preact + HTM for a lightweight React-like app -->
+    <script type="module">
+        import { h, render } from "https://esm.sh/preact@10.19.6";
+        import { useMemo, useState, useEffect, useRef } from "https://esm.sh/preact@10.19.6/hooks";
+        import htm from "https://esm.sh/htm@3.1.1";
 
-        // --- Constants & Helpers ---
-        const KCAL_PER_KG = 7716; // 3500 kcal/lb * 2.20462
-        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+        const html = htm.bind(h);
+
+        // -------- Utilities --------
+        const MS_PER_D = 24 * 60 * 60 * 1000;
+
         const byDate = (a, b) => new Date(a.date) - new Date(b.date);
 
-        // Ordinary-least-squares slope (kg per day) using actual dates
+        const fmt = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
+        const fmt0 = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 0 });
+
+        const mean = (xs) => xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : 0;
+
+        // Linear regression slope (kg/day) for entries with date+weight
         function slopeKgPerDay(entries) {
-            const n = entries.length;
-            if (n < 2) return null;
-            const t0 = new Date(entries[0].date).getTime();
-            const xs = entries.map(e => (new Date(e.date).getTime() - t0) / MS_PER_DAY);
-            const ys = entries.map(e => e.weight);
-            const mx = xs.reduce((a, b) => a + b, 0) / n;
-            const my = ys.reduce((a, b) => a + b, 0) / n;
-            let num = 0, den = 0;
-            for (let i = 0; i < n; i++) {
-                const dx = xs[i] - mx;
-                num += dx * (ys[i] - my);
-                den += dx * dx;
-            }
-            return den === 0 ? null : num / den; // kg/day
+            const data = entries
+                .filter(e => e.date && typeof e.weight === "number" && !Number.isNaN(e.weight))
+                .sort(byDate);
+            if (data.length < 2) return null;
+
+            const t0 = new Date(data[0].date).getTime();
+            const x = data.map((e) => (new Date(e.date).getTime() - t0) / MS_PER_D); // days from start
+            const y = data.map((e) => e.weight);
+
+            const n = x.length;
+            const sumx = x.reduce((a,b)=>a+b,0);
+            const sumy = y.reduce((a,b)=>a+b,0);
+            const sumxx = x.reduce((a,b)=>a+b*b,0);
+            const sumxy = x.reduce((a,b,i)=>a+b*y[i],0);
+
+            const denom = n * sumxx - sumx * sumx;
+            if (Math.abs(denom) < 1e-12) return 0;
+
+            const slope = (n * sumxy - sumx * sumy) / denom; // kg per day
+            return slope;
         }
 
-        // --- Helper Icons ---
-        const WeightIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><path d="M12 12c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0 2c2.7 0 8 1.3 8 4v2H4v-2c0-2.7 5.3-4 8-4z"/><path d="M20.8 19.3c-1-3.3-3.3-5.3-6.8-5.3s-5.8 2-6.8 5.3"/></svg>;
-        const CalorieIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.32 0L12 2.69z"/><path d="M12 12.69l-3.37 3.37"/></svg>;
-        const TargetIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-6 w-6 text-gray-400"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
-        const InfoIcon = ({ onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block h-4 w-4 ml-1 text-gray-500 hover:text-gray-300 cursor-pointer"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
-        const ChevronLeftIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
-        const ChevronRightIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
+        // Parse/format persistence
+        const STORAGE_KEY = "tdee-entries-v1";
 
-        // --- Helper Functions ---
-        const formatDate = (date) => {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        };
-        const formatDateDDMMYY = (date) => {
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = String(d.getFullYear()).slice(-2);
-            return `${day}/${month}/${year}`;
-        };
-        const areDatesEqual = (date1, date2) => formatDate(date1) === formatDate(date2);
+        function loadEntries() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return [];
+                const arr = JSON.parse(raw);
+                return Array.isArray(arr) ? arr : [];
+            } catch { return []; }
+        }
+        function saveEntries(entries) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+            } catch {}
+        }
 
-        // --- Calendar Component ---
-        const Calendar = ({ selectedDate, setSelectedDate, entries }) => {
-            const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+        // CSV import/export
+        function parseCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            const header = lines[0].split(",").map(s=>s.trim().toLowerCase());
+            const idx = {
+                date: header.indexOf("date"),
+                weight: header.indexOf("weight"),
+                calories: header.indexOf("calories"),
+                tdee: header.indexOf("tdee"),
+            };
+            const out = [];
+            for (let i=1; i<lines.length; i++) {
+                const cols = lines[i].split(",").map(s=>s.trim());
+                const date = idx.date >= 0 ? cols[idx.date] : "";
+                const weight = idx.weight >= 0 && cols[idx.weight] !== "" ? Number(cols[idx.weight]) : null;
+                const calories = idx.calories >= 0 && cols[idx.calories] !== "" ? Number(cols[idx.calories]) : null;
+                const tdee = idx.tdee >= 0 && cols[idx.tdee] !== "" ? Number(cols[idx.tdee]) : null;
+                if (!date) continue;
+                out.push({ date, weight, calories, tdee });
+            }
+            return out;
+        }
+        function toCSV(entries) {
+            const header = "Date,Weight,Calories,TDEE";
+            const rows = entries
+                .slice()
+                .sort(byDate)
+                .map(e => [
+                    e.date,
+                    e.weight ?? "",
+                    e.calories ?? "",
+                    e.tdee ?? ""
+                ].join(","));
+            return [header, ...rows].join("\n");
+        }
 
-            useEffect(() => {
-                setCurrentMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
-            }, [selectedDate]);
-
-            const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-            const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-            
-            const entryDates = useMemo(() => new Set(entries.map(e => e.date)), [entries]);
-
-            const handlePrevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-            const handleNextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-
-            return (
-                <div className="bg-[#2c2c2e] rounded-xl shadow-md p-4 border border-gray-700">
-                    <div className="flex justify-between items-center mb-4">
-                        <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-600"><ChevronLeftIcon /></button>
-                        <h3 className="font-bold text-lg">{currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                        <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-600"><ChevronRightIcon /></button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 place-items-center text-sm">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <div key={`${day}-${index}`} className="w-9 h-9 flex items-center justify-center font-semibold text-gray-400">{day}</div>)}
-                        {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`}></div>)}
-                        {Array.from({ length: daysInMonth }).map((_, day) => {
-                            const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day + 1);
-                            const dateStr = formatDate(date);
-                            const isSelected = areDatesEqual(date, selectedDate);
-                            const hasEntry = entryDates.has(dateStr);
-                            
-                            return (
-                                <button
-                                    key={day}
-                                    onClick={() => setSelectedDate(date)}
-                                    className={`relative w-9 h-9 flex items-center justify-center rounded-full transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
-                                >
-                                    {day + 1}
-                                    {hasEntry && <span className="absolute bottom-1 h-1 w-1 bg-green-400 rounded-full"></span>}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            );
-        };
-        
-        // --- Confirmation Modal Component ---
-        const ConfirmationModal = ({ onConfirm, onCancel }) => {
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-                    <div className="bg-[#2c2c2e] rounded-xl p-6 border border-gray-700 shadow-lg text-center">
-                        <h3 className="text-lg font-bold text-white mb-4">Are you sure?</h3>
-                        <p className="text-gray-300 mb-6">This will permanently delete all your data. This action cannot be undone.</p>
-                        <div className="flex justify-center gap-4">
-                            <button onClick={onCancel} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={onConfirm} className="bg-red-600 text-white font-bold py-2 px-6 rounded-md hover:bg-red-700">Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- Main App Component ---
+        // ------- App -------
         function App() {
-            const [entries, setEntries] = useState([]);
-            const [goal, setGoal] = useState(0);
-            const [targetWeight, setTargetWeight] = useState('');
-            const [selectedDate, setSelectedDate] = useState(new Date());
-            const [weightInput, setWeightInput] = useState('');
-            const [caloriesInput, setCaloriesInput] = useState('');
-            const [showInfo, setShowInfo] = useState(false);
-            const [showClearConfirm, setShowClearConfirm] = useState(false);
+            const [entries, setEntries] = useState(() => loadEntries());
+            useEffect(() => saveEntries(entries), [entries]);
 
-            useEffect(() => {
-                try {
-                    const savedEntries = JSON.parse(localStorage.getItem('tdeeAppEntries') || '[]');
-                    const savedGoal = parseFloat(localStorage.getItem('tdeeAppGoal') || '0');
-                    const savedTargetWeight = localStorage.getItem('tdeeAppTargetWeight') || '';
-                    if (Array.isArray(savedEntries)) setEntries(savedEntries);
-                    if (!isNaN(savedGoal)) setGoal(savedGoal);
-                    setTargetWeight(savedTargetWeight);
-                } catch (error) { console.error("Failed to load data", error); }
-            }, []);
+            // Derived lists
+            const completeEntries = useMemo(() => entries.filter(e => e.date && e.weight != null).sort(byDate), [entries]);
+            const weightEntries   = useMemo(() => entries.filter(e => e.date && e.weight != null), [entries]);
 
-            useEffect(() => {
-                try {
-                    localStorage.setItem('tdeeAppEntries', JSON.stringify(entries));
-                    localStorage.setItem('tdeeAppGoal', goal.toString());
-                    localStorage.setItem('tdeeAppTargetWeight', targetWeight);
-                } catch (error) { console.error("Failed to save data", error); }
-            }, [entries, goal, targetWeight]);
-
-            useEffect(() => {
-                const entryForDate = entries.find(e => e.date === formatDate(selectedDate));
-                setWeightInput(entryForDate ? (entryForDate.weight ?? '').toString() : '');
-                setCaloriesInput(entryForDate ? (entryForDate.calories ?? '').toString() : '');
-            }, [selectedDate, entries]);
-
-            const tdee = useMemo(() => {
-                // TDEE calculation requires paired weight and calorie data.
-                const completeEntries = entries.filter(e => e.weight != null && e.calories != null);
-                
-                if (completeEntries.length < 2) return null;
-                
-                const sorted = [...completeEntries].sort(byDate);
-                // Use the last 49 days of *complete* data.
-                const period = sorted.slice(-49);
-                
-                if (period.length < 2) return null;
-
-                // 1. Calculate average calorie intake over the period.
-                const totalCalories = period.reduce((sum, entry) => sum + entry.calories, 0);
-                const averageCalories = totalCalories / period.length;
-
-                // 2. Calculate weight change trend (slope) using linear regression.
-                const weightChangeKgPerDay = slopeKgPerDay(period);
-                
-                if (weightChangeKgPerDay === null) return null;
-
-                // 3. Calculate TDEE: Avg Calories - Energy Equivalent of Weight Change
-                const calculatedTdee = averageCalories - (weightChangeKgPerDay * KCAL_PER_KG);
-                
-                // Clamp the result to a reasonable range and round it.
-                return Math.round(Math.max(800, Math.min(6000, calculatedTdee)));
-            }, [entries]);
-
-            const calculationStatus = useMemo(() => {
-                const completeEntries = entries.filter(e => e.weight != null && e.calories != null);
+            // “Weekly change” status text shown beside the KPI (uses same 15-entry window)
+            const weeklyChangeStatus = useMemo(() => {
                 if (completeEntries.length < 2) return 'Needs more data';
                 
                 const sorted = [...completeEntries].sort(byDate);
-                const recent = sorted.slice(-14);
+                const recent = sorted.slice(-15);
                 if (recent.length < 2) return 'Preliminary Estimate';
                 
-                const spanDays = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / MS_PER_DAY;
+                const spanDays = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / MS_PER_D
+                if (spanDays < 7) return 'Short window';
+                return 'OK';
+            }, [completeEntries]);
 
-                let hasGap = false;
-                for (let i=1; i<recent.length; i++){
-                    const diff = Math.round((new Date(recent[i].date) - new Date(recent[i-1].date)) / MS_PER_DAY);
-                    if (diff > 3) { hasGap = true; break; } // Allow for a couple missed days
-                }
-                if (hasGap) return 'Gaps in logs — estimate may vary';
-                return spanDays >= 10 ? 'Reliable Estimate' : 'Preliminary Estimate';
-            }, [entries]);
-
-            const calorieTarget = useMemo(() => {
-                if (!tdee) return null;
-                return Math.round(tdee + (goal * KCAL_PER_KG) / 7);
-            }, [tdee, goal]);
-            
+            // Average weekly change (kg/week) using OLS slope on last 15 weights
             const averageWeeklyChange = useMemo(() => {
-                const weightEntries = entries.filter(e => e.weight != null);
                 if (weightEntries.length < 2) return null;
 
                 const sorted = [...weightEntries].sort(byDate);
-                // Use last 14 entries with weight data
-                const recent = sorted.slice(-14); 
+                // Use last 15 entries with weight data
+                const recent = sorted.slice(-15); 
                 if (recent.length < 2) return null;
                 const slope = slopeKgPerDay(recent);
                 return slope === null ? null : slope * 7; // kg/week
             }, [entries]);
 
+            // Current TDEE estimate (simple mean of non-null TDEE)
+            const meanTDEE = useMemo(() => {
+                const vals = entries.filter(e => typeof e.tdee === "number").map(e => e.tdee);
+                return vals.length ? mean(vals) : null;
+            }, [entries]);
+
+            // Calorie delta = mean(calories - TDEE) in recent window (optional UI use)
+            const recentCalDelta = useMemo(() => {
+                const withBoth = entries.filter(e => typeof e.calories === "number" && typeof e.tdee === "number").sort(byDate);
+                const recent = withBoth.slice(-21); // a separate, independent window for diet signal
+                if (!recent.length) return null;
+                return mean(recent.map(e => e.calories - e.tdee));
+            }, [entries]);
+
+            // Target weight helper
+            const [targetWeight, setTargetWeight] = useState("");
             const targetDate = useMemo(() => {
-                const parsedTarget = parseFloat(targetWeight);
-                const weightEntries = entries.filter(e => e.weight != null);
+                const tw = Number(targetWeight);
+                if (!Number.isFinite(tw) || weightEntries.length === 0) return null;
+                const last = weightEntries.sort(byDate)[weightEntries.length-1];
+                const w0 = last.weight;
+                const slopeW = averageWeeklyChange;
+                if (slopeW == null || Math.abs(slopeW) < 1e-6) return null;
+                const weeksNeeded = (tw - w0) / slopeW;
+                if (!Number.isFinite(weeksNeeded)) return null;
+                const ms = new Date(last.date).getTime() + weeksNeeded * 7 * MS_PER_D;
+                return new Date(ms);
+            }, [targetWeight, averageWeeklyChange, weightEntries]);
 
-                if (weightEntries.length < 1 || isNaN(parsedTarget) || goal === 0) return null;
+            // Form state
+            const [form, setForm] = useState({ date: "", weight: "", calories: "", tdee: "" });
+            const dateInputRef = useRef(null);
 
-                const sorted = [...weightEntries].sort(byDate);
-                const last = sorted[sorted.length - 1];
-                const currentWeight = last.weight;
-                const weightDiff = parsedTarget - currentWeight;
+            useEffect(() => {
+                // prefill date with today
+                if (!form.date) {
+                    const d = new Date();
+                    const iso = d.toISOString().slice(0,10);
+                    setForm(f => ({...f, date: iso}));
+                }
+            }, []);
 
-                if ((weightDiff > 0 && goal < 0) || (weightDiff < 0 && goal > 0)) return null;
-
-                const weeksNeeded = weightDiff / goal;
-                if (!isFinite(weeksNeeded) || weeksNeeded <= 0) return null;
-
-                const futureDate = new Date(new Date(last.date).getTime() + weeksNeeded * 7 * MS_PER_DAY);
-                return futureDate;
-            }, [entries, targetWeight, goal]);
-
-            const projectedTargetDate = useMemo(() => {
-                const parsedTarget = parseFloat(targetWeight);
-                const weightEntries = entries.filter(e => e.weight != null);
-
-                if (weightEntries.length < 2 || isNaN(parsedTarget) || averageWeeklyChange === null || averageWeeklyChange === 0) return "N/A";
-
-                const sorted = [...weightEntries].sort(byDate);
-                const last = sorted[sorted.length - 1];
-                const currentWeight = last.weight;
-                const weightDiff = parsedTarget - currentWeight;
-
-                if ((weightDiff > 0 && averageWeeklyChange < 0) || (weightDiff < 0 && averageWeeklyChange > 0)) return "N/A";
-
-                const weeksNeeded = weightDiff / averageWeeklyChange;
-                if (!isFinite(weeksNeeded) || weeksNeeded <= 0) return "N/A";
-
-                const futureDate = new Date(new Date(last.date).getTime() + weeksNeeded * 7 * MS_PER_DAY);
-                return formatDateDDMMYY(futureDate);
-            }, [entries, targetWeight, averageWeeklyChange]);
-            
-            const entryForSelectedDateExists = useMemo(() => {
-                return entries.some(e => e.date === formatDate(selectedDate));
-            }, [selectedDate, entries]);
-
-            const handleDeleteEntry = () => {
-                const dateStr = formatDate(selectedDate);
-                const updatedEntries = entries.filter(entry => entry.date !== dateStr);
-                setEntries(updatedEntries);
-            };
-
-            const handleAddEntry = (e) => {
+            function upsertEntry(e) {
                 e.preventDefault();
-                const weight = parseFloat(weightInput);
-                const calories = parseInt(caloriesInput, 10);
-                
-                const newWeight = !isNaN(weight) && weight > 0 ? weight : null;
-                const newCalories = !isNaN(calories) && calories >= 0 ? calories : null;
+                const d = form.date?.trim();
+                if (!d) return;
 
-                // If both inputs are invalid or empty, delete the entry if it exists, otherwise do nothing
-                if (newWeight === null && newCalories === null) {
-                    if (entryForSelectedDateExists) {
-                       handleDeleteEntry();
-                    }
-                    return;
-                }
-
-                const dateStr = formatDate(selectedDate);
-                const existingIndex = entries.findIndex(e => e.date === dateStr);
-                let updatedEntries;
-
-                if (existingIndex > -1) {
-                    updatedEntries = [...entries];
-                    const existingEntry = updatedEntries[existingIndex];
-                    // Update entry, respecting cleared fields
-                    updatedEntries[existingIndex] = {
-                        ...existingEntry,
-                        weight: weightInput.trim() === '' ? null : newWeight ?? existingEntry.weight,
-                        calories: caloriesInput.trim() === '' ? null : newCalories ?? existingEntry.calories,
-                    };
-                } else {
-                    updatedEntries = [...entries, { date: dateStr, weight: newWeight, calories: newCalories }];
-                }
-                
-                // Clean up any entries that might have become empty
-                updatedEntries = updatedEntries.filter(e => e.weight != null || e.calories != null);
-                
-                setEntries(updatedEntries.sort(byDate));
-            };
-            
-            const handleGoalChange = (e) => {
-                const newGoal = parseFloat(e.target.value);
-                if (!isNaN(newGoal) && newGoal >= -1 && newGoal <= 1) setGoal(newGoal);
-            };
-            
-            const handleExport = async (format) => {
-                if (entries.length === 0) return;
-                const filename = `tdee-data-${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`;
-                let blob;
-                let mimeType;
-                if (format === 'json') {
-                    const dataToExport = JSON.stringify({ goal, entries, targetWeight }, null, 2);
-                    mimeType = 'application/json';
-                    blob = new Blob([dataToExport], { type: mimeType });
-                } else {
-                    const csvHeader = "date,weight,calories";
-                    // Handle null values gracefully for CSV export
-                    const csvRows = entries.map(e => `${e.date},${e.weight ?? ''},${e.calories ?? ''}`);
-                    const csvData = [csvHeader, ...csvRows].join('\n');
-                    mimeType = 'text/csv;charset=utf-8;';
-                    blob = new Blob([csvData], { type: mimeType });
-                }
-                if (navigator.share) {
-                    const file = new File([blob], filename, { type: mimeType });
-                    try {
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({ files: [file], title: 'TDEE Data Export', text: `Your TDEE data as a ${format.toUpperCase()} file.` });
-                            return;
-                        }
-                    } catch (error) { console.error('Share API failed, falling back to download.', error); }
-                }
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            };
-
-            const handleImport = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const content = event.target.result;
-                        if (file.name.endsWith('.json')) {
-                            const data = JSON.parse(content);
-                            if (data && Array.isArray(data.entries) && typeof data.goal === 'number') {
-                                setEntries(data.entries.sort(byDate));
-                                setGoal(data.goal);
-                                setTargetWeight(data.targetWeight || '');
-                            }
-                        } else if (file.name.endsWith('.csv')) {
-                            const lines = content.replace(/\r/g,'').split('\n').filter(Boolean);
-                            const imported = lines.slice(1).map(line => {
-                                const [date, weight, calories] = line.split(',');
-                                const w = parseFloat(weight);
-                                const c = parseInt(calories, 10);
-                                return { 
-                                    date, 
-                                    weight: isNaN(w) ? null : w, 
-                                    calories: isNaN(c) ? null : c 
-                                };
-                            }).filter(e => e.date && (e.weight != null || e.calories != null)); // Ensure imported rows are not empty
-                            
-                            if (imported.length > 0) {
-                                setEntries(imported.sort(byDate));
-                            }
-                        }
-                    } catch (error) { console.error("Import failed:", error); }
+                const payload = {
+                    date: d,
+                    weight: form.weight === "" ? null : Number(form.weight),
+                    calories: form.calories === "" ? null : Number(form.calories),
+                    tdee: form.tdee === "" ? null : Number(form.tdee),
                 };
-                reader.readAsText(file);
-                e.target.value = null;
-            };
-            
-            const handleConfirmClear = () => {
-                setEntries([]);
-                setGoal(0);
-                setTargetWeight('');
-                setShowClearConfirm(false);
-            };
 
-            return (
-                <div className="bg-[#1c1c1e] min-h-screen font-sans text-gray-200">
-                    {showClearConfirm && <ConfirmationModal onConfirm={handleConfirmClear} onCancel={() => setShowClearConfirm(false)} />}
-                    <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
-                        <header className="text-center mb-6">
-                            <h1 className="text-4xl font-bold text-white">Ryan's TDEE Tracker</h1>
-                            <p className="text-gray-400 mt-2">Target weight date: <span className="font-semibold text-white">{targetDate ? formatDateDDMMYY(targetDate) : "N/A"}</span></p>
-                            <p className="text-gray-400 mt-1">Target weight date at current Δ: <span className="font-semibold text-white">{projectedTargetDate}</span></p>
-                        </header>
-                        <main>
-                            <div className="bg-[#2c2c2e] rounded-xl shadow-lg p-6 mb-6 border border-gray-700">
-                                {tdee !== null ? (
-                                    <div className="space-y-3">
-                                        <div className="text-center">
-                                            <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Daily Calorie Target</h2>
-                                            <p className="text-5xl font-bold text-green-400">{calorieTarget} <span className="text-2xl font-medium text-gray-400">kcal</span></p>
-                                            <p className="text-sm text-gray-500 mt-2">Based on a TDEE of {tdee} kcal/day ({calculationStatus})</p>
-                                        </div>
-                                        
-                                        {averageWeeklyChange !== null && (() => {
-                                            const wc = Math.abs(averageWeeklyChange) < 0.005 ? 0 : averageWeeklyChange;
-                                            const colorClass = wc > 0 ? 'text-blue-400' : 'text-red-400';
-                                            const changeText = wc > 0 ? `+${wc.toFixed(2)}` : wc.toFixed(2);
-                                            return (
-                                                <div className="text-center">
-                                                    <h2 className="text-lg font-semibold text-gray-400 text-center mb-2">Current weight change</h2>
-                                                    <p className={`text-5xl font-bold ${wc === 0 ? 'text-gray-200' : colorClass}`}>
-                                                        {changeText}
-                                                        <span className="text-2xl font-medium text-gray-400"> kg/week</span>
-                                                    </p>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                ) : (
-                                    <div className="text-center">
-                                        <p className="text-xl font-medium text-gray-400 animate-pulse">
-                                            Calculating... 
-                                            <InfoIcon onClick={() => setShowInfo(!showInfo)} />
-                                        </p>
-                                        {showInfo && (
-                                            <div className="mt-2 text-sm text-left text-gray-400 bg-gray-700/50 p-3 rounded-lg">
-                                                <p>TDEE is your Total Daily Energy Expenditure.</p>
-                                                <p className="mt-1">&bull; An estimate requires at least 2 days with both weight & calorie entries.</p>
-                                                <p className="mt-1">&bull; The calculation becomes more reliable with more consistent data.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <Calendar selectedDate={selectedDate} setSelectedDate={setSelectedDate} entries={entries} />
-                                <div className="bg-[#2c2c2e] rounded-xl shadow-md p-6 border border-gray-700">
-                                    <h2 className="text-xl font-bold mb-4 text-white">Log for {formatDateDDMMYY(selectedDate)}</h2>
-                                    <form onSubmit={handleAddEntry} className="space-y-4">
-                                        <div>
-                                            <label htmlFor="weight" className="block text-sm font-medium text-gray-300 mb-1">Weight (kg)</label>
-                                            <div className="flex items-center"><WeightIcon /><input type="number" id="weight" step="0.1" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} placeholder="e.g., 70.5" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"/></div>
-                                        </div>
-                                        <div>
-                                            <label htmlFor="calories" className="block text-sm font-medium text-gray-300 mb-1">Calories (kcal)</label>
-                                            <div className="flex items-center"><CalorieIcon /><input type="number" id="calories" step="10" value={caloriesInput} onChange={(e) => setCaloriesInput(e.target.value)} placeholder="e.g., 2100" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"/></div>
-                                        </div>
-                                         <div>
-                                            <label htmlFor="target-weight" className="block text-sm font-medium text-gray-300 mb-1">Target Weight (kg)</label>
-                                            <div className="flex items-center"><TargetIcon /><input type="number" id="target-weight" step="0.1" value={targetWeight} onChange={(e) => setTargetWeight(e.target.value)} placeholder="e.g., 68.0" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"/></div>
-                                        </div>
-                                        <div className="flex items-center gap-x-2">
-                                            <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
-                                                {entryForSelectedDateExists ? 'Update Entry' : 'Save Entry'}
-                                            </button>
-                                            {entryForSelectedDateExists && (
-                                                <button type="button" onClick={handleDeleteEntry} className="w-full bg-transparent border border-red-500 text-red-500 font-bold py-2 px-4 rounded-md hover:bg-red-500 hover:text-white transition-colors">
-                                                    Delete
-                                                </button>
-                                            )}
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                            
-                            <div className="bg-[#2c2c2e] rounded-xl shadow-md p-6 mt-6 border border-gray-700">
-                                <h2 className="text-xl font-bold mb-4 text-white">Settings</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300">Weekly Weight Change Goal (kg)</label>
-                                        <div className="flex items-center space-x-4 mt-2">
-                                            <input type="number" min="-1" max="1" step="0.1" value={goal} onChange={handleGoalChange} className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-center"/>
-                                            <input type="range" min="-1" max="1" step="0.1" value={goal} onChange={handleGoalChange} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"/>
-                                        </div>
-                                        <div className="text-center mt-2">
-                                            <span className={`font-bold text-lg ${goal < 0 ? 'text-red-400' : goal > 0 ? 'text-blue-400' : 'text-gray-200'}`}>{goal > 0 ? `Gain ${goal.toFixed(1)} kg/week` : goal < 0 ? `Lose ${Math.abs(goal).toFixed(1)} kg/week` : 'Maintain Weight'}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300">Data Management</label>
-                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                            <button onClick={() => handleExport('json')} className="bg-gray-600 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-500">Export JSON</button>
-                                            <button onClick={() => handleExport('csv')} className="bg-gray-600 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-500">Export CSV</button>
-                                            <label className="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 text-center cursor-pointer">Import<input type="file" accept=".json, .csv" onChange={handleImport} className="hidden" /></label>
-                                            <button onClick={() => setShowClearConfirm(true)} className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700">Clear Data</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </main>
-                        <footer className="text-center mt-8 text-gray-500 text-sm">
-                            <p>Built for offline use. All data is stored on your device.</p>
-                        </footer>
+                setEntries(prev => {
+                    const idx = prev.findIndex(x => x.date === d);
+                    if (idx === -1) return [...prev, payload].sort(byDate);
+                    const next = prev.slice();
+                    next[idx] = payload;
+                    return next.sort(byDate);
+                });
+
+                setForm(f => ({...f, weight:"", calories:"", tdee:""}));
+                dateInputRef.current?.focus();
+            }
+
+            function remove(date) {
+                setEntries(prev => prev.filter(e => e.date !== date));
+            }
+
+            // Import/Export
+            const [csvText, setCsvText] = useState("");
+            function importCSV() {
+                const arr = parseCSV(csvText);
+                if (!arr.length) return;
+                // Merge on date
+                setEntries(prev => {
+                    const map = new Map(prev.map(e => [e.date, e]));
+                    for (const e of arr) map.set(e.date, e);
+                    return [...map.values()].sort(byDate);
+                });
+                setCsvText("");
+            }
+            function exportCSV() {
+                const blob = new Blob([toCSV(entries)], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "tdee-data.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            // UI
+            return html`
+                <div class="container">
+                    <div class="between">
+                        <div>
+                            <h1 class="tight">TDEE Tracker</h1>
+                            <div class="subtle sm">Lightweight offline-first tracker (localStorage)</div>
+                        </div>
+                        <div class="hint-row">
+                            <div class="hint-card"><span class="kbd">Tab</span> through fields</div>
+                            <div class="hint-card">CSV import/export</div>
+                            <div class="hint-card">Everything stays on-device</div>
+                        </div>
                     </div>
-                </div>
-            );
-        }
 
-        const root = window.ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                    <div class="mt16 kpi">
+                        <div class="item">
+                            <div class="label">Average Weekly Change</div>
+                            <div class="value">
+                                ${averageWeeklyChange == null ? html`<span class="muted">—</span>` :
+                                    html`<span class="${averageWeeklyChange>=0 ? 'good' : 'bad'}">${fmt.format(averageWeeklyChange)} kg/week</span>`}
+                            </div>
+                            <div class="hint">Window: last 15 weigh-ins • Status: <span class="tag">${weeklyChangeStatus}</span></div>
+                        </div>
+                        <div class="item">
+                            <div class="label">Mean TDEE</div>
+                            <div class="value">${meanTDEE == null ? html`<span class="muted">—</span>` : `${fmt0.format(meanTDEE)} kcal`}</div>
+                            <div class="hint">From rows with TDEE</div>
+                        </div>
+                        <div class="item">
+                            <div class="label">Recent Calorie Δ</div>
+                            <div class="value">
+                                ${recentCalDelta == null ? html`<span class="muted">—</span>` :
+                                    html`<span class="${recentCalDelta>=0 ? 'warn' : 'good'}">${fmt0.format(recentCalDelta)} kcal/day</span>`}
+                            </div>
+                            <div class="hint">Mean of last 21 (Calories - TDEE)</div>
+                        </div>
+                        <div class="item">
+                            <div class="label">Target Weight ETA</div>
+                            <div class="value">
+                                ${targetDate == null ? html`<span class="muted">—</span>` :
+                                    html`<span>${targetDate.toISOString().slice(0,10)}</span>`}
+                            </div>
+                            <div class="hint">
+                                <span>at current weekly Δ</span>
+                            </div>
+                        </div>
+                    </div>
 
-    </script>
-</body>
-</html>
+                    <div class="mt16 card">
+                        <div class="between">
+                            <div class="title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                <h2>Log Entry</h2>
+                            </div>
+                            <div class="pill">All units metric</div>
+                        </div>
+
+                        <form class="mt12" onSubmit=${upsertEntry}>
+                            <div class="grid-3">
+                                <div>
+                                    <div class="cap b">Date</div>
+                                    <input ref=${dateInputRef} class="w100 mono-input" type="date" value=${form.date}
+                                        onInput=${e => setForm(f=>({...f, date: e.currentTarget.value}))} required />
+                                </div>
+                                <div>
+                                    <div class="cap b">Weight (kg)</div>
+                                    <input class="w100 mono-input" type="number" inputmode="decimal" step="0.01" placeholder="e.g. 71.40" value=${form.weight}
+                                        onInput=${e => setForm(f=>({...f, weight: e.currentTarget.value}))}/>
+                                </div>
+                                <div>
+                                    <div class="cap b">Calories (kcal)</div>
+                                    <input class="w100 mono-input" type="number" inputmode="numeric" step="1" placeholder="e.g. 3050" value=${form.calories}
+                                        onInput=${e => setForm(f=>({...f, calories: e.currentTarget.value}))}/>
+                                </div>
+                                <div>
+                                    <div class="cap b">TDEE (kcal)</div>
+                                    <input class="w100 mono-input" type="number" inputmode="numeric" step="1" placeholder="e.g. 2850" value=${form.tdee}
+                                        onInput=${e => setForm(f=>({...f, tdee: e.currentTarget.value}))}/>
+                                </div>
+                            </div>
+                            <div class="controls mt12">
+                                <button class="primary" type="submit">Save/Update</button>
+                                <button class="ghost" type="button" onClick=${() => setForm({ date: form.date, weight:"", calories:"", tdee:"" })}>Clear fields</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="mt16 row">
+                        <div class="card">
+                            <div class="between">
+                                <div class="title">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 3v18h18"></path>
+                                        <path d="M19 19c-6-6-10-10-16-16"></path>
+                                    </svg>
+                                    <h2>Progress Table</h2>
+                                </div>
+                                <div class="pill">Newest first</div>
+                            </div>
+                            <div class="mt12 scroll">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Weight</th>
+                                            <th>Calories</th>
+                                            <th>TDEE</th>
+                                            <th class="right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${entries.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e => html`
+                                            <tr>
+                                                <td>${e.date}</td>
+                                                <td>${e.weight ?? html`<span class="muted">—</span>`}</td>
+                                                <td>${e.calories ?? html`<span class="muted">—</span>`}</td>
+                                                <td>${e.tdee ?? html`<span class="muted">—</span>`}</td>
+                                                <td class="right">
+                                                    <button class="ghost" onClick=${() => remove(e.date)}>Delete</button>
+                                                </td>
+                                            </tr>
+                                        `)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 20v-6"></path>
+                                    <path d="M6 20V10"></path>
+                                    <path d="M18 20v-2"></path>
+                                </svg>
+                                <h2>Import / Export</h2>
+                            </div>
+                            <div class="mt8 note">
+                                CSV columns must be exactly: <code>Date,Weight,Calories,TDEE</code>. Missing numeric fields can be blank.
+                            </div>
+                            <textarea class="mt12 w100 mono-input" rows="8" placeholder="Date,Weight,Calories,TDEE&#10;2025-09-10,70.6,3121,2772&#10;..." value=${csvText}
+                                onInput=${e=>setCsvText(e.currentTarget.value)}></textarea>
+                            <div class="controls mt12">
+                                <button class="primary" type="button" onClick=${importCSV}>Import CSV (merge by date)</button>
+                                <button class="ghost" type="button" onClick=${exportCSV}>Export CSV</button>
+                            </div>
+
+                            <div class="mt16 box">
+                                <div class="between wrap">
+                                    <div>
+                                        <div class="cap b">Target Weight</div>
+                                        <input class="small-input mono-input" type="number" inputmode="decimal" step="0.01" placeholder="kg" value=${targetWeight}
+                                            onInput=${e=>setTargetWeight(e.currentTarget.value)} />
+                                    </div>
+                                    <div>
+                                        <div
